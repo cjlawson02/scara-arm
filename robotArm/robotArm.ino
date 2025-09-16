@@ -7,7 +7,6 @@
 #include "logger.h"
 #include "robotGeometry.h"
 #include "interpolation.h"
-#include "fanControl.h"
 #include "RampsStepper.h"
 #include "queue.h"
 #include "command.h"
@@ -20,20 +19,13 @@ RampsStepper stepperHigher(X_STEP_PIN, X_DIR_PIN, X_ENABLE_PIN, INVERSE_X_STEPPE
 RampsStepper stepperLower(Y_STEP_PIN, Y_DIR_PIN, Y_ENABLE_PIN, INVERSE_Y_STEPPER);
 RampsStepper stepperRotate(Z_STEP_PIN, Z_DIR_PIN, Z_ENABLE_PIN, INVERSE_Z_STEPPER);
 
-// Stepper stepper(2400, STEPPER_GRIPPER_PIN_0, STEPPER_GRIPPER_PIN_1, STEPPER_GRIPPER_PIN_2, STEPPER_GRIPPER_PIN_3);
-
-RampsStepper stepperExtruder(E_STEP_PIN, E_DIR_PIN, E_ENABLE_PIN, INVERSE_E0_STEPPER);
-
 // ENDSTOP OBJECTS
 Endstop endstopX(X_MIN_PIN, X_DIR_PIN, X_STEP_PIN, X_ENABLE_PIN, X_MIN_INPUT, X_HOME_STEPS, HOME_DWELL);
 Endstop endstopY(Y_MIN_PIN, Y_DIR_PIN, Y_STEP_PIN, Y_ENABLE_PIN, Y_MIN_INPUT, Y_HOME_STEPS, HOME_DWELL);
 Endstop endstopZ(Z_MIN_PIN, Z_DIR_PIN, Z_STEP_PIN, Z_ENABLE_PIN, Z_MIN_INPUT, Z_HOME_STEPS, HOME_DWELL);
 // EQUIPMENT OBJECTS
 Servo_Gripper servo_gripper(SERVO_PIN, SERVO_GRIP_DEGREE, SERVO_UNGRIP_DEGREE);
-Equipment laser(LASER_PIN);
-Equipment pump(PUMP_PIN);
 Equipment led(LED_PIN);
-FanControl fan(FAN_PIN, FAN_DELAY);
 
 RobotGeometry geometry;
 Interpolation interpolator;
@@ -52,49 +44,15 @@ void setup()
   SERIALX.begin(BAUD);
 
   // various pins..
-  pinMode(HEATER_0_PIN, OUTPUT);
-  pinMode(HEATER_1_PIN, OUTPUT);
   pinMode(LED_PIN, OUTPUT);
-
-  // unused Stepper..
-  pinMode(E_STEP_PIN, OUTPUT);
-  pinMode(E_DIR_PIN, OUTPUT);
-  pinMode(E_ENABLE_PIN, OUTPUT);
-
-  // unused Stepper..
-  pinMode(Q_STEP_PIN, OUTPUT);
-  pinMode(Q_DIR_PIN, OUTPUT);
-  pinMode(Q_ENABLE_PIN, OUTPUT);
-
-  // GripperPins
-  /*
-  pinMode(BYJ_PIN_0, OUTPUT);
-  pinMode(BYJ_PIN_1, OUTPUT);
-  pinMode(BYJ_PIN_2, OUTPUT);
-  pinMode(BYJ_PIN_3, OUTPUT);
-  digitalWrite(BYJ_PIN_0, LOW);
-  digitalWrite(BYJ_PIN_1, LOW);
-  digitalWrite(BYJ_PIN_2, LOW);
-  digitalWrite(BYJ_PIN_3, LOW);
-  */
-  //  vaccum motor control
-  pinMode(MOTOR_IN1, OUTPUT);
-  pinMode(MOTOR_IN2, OUTPUT);
-  digitalWrite(MOTOR_IN1, LOW);
-  digitalWrite(MOTOR_IN2, LOW);
 
   servo_motor.attach(SERVO_PIN);
   servo_motor.write(angle + angle_offset);
   delay(300);
   servo_motor.detach();
-  // servo.slowmove (angle + angle_offset, 50);
 
   // reduction of steppers..
-
-  // SERIALX.println("here");
-  // stepperHigher.setReductionRatio(62.0 / 20.0, 200 * 16);
   stepperHigher.setReductionRatio((62.0 / 16.0) * (62.0 / 33.0), 200 * 16);
-  // stepperLower.setReductionRatio( 62.0 / 20.0, 200 * 16);
   stepperLower.setReductionRatio(72.0 / 16.0, 200 * 16);
   stepperRotate.setReductionRatio(1.0, 200 * 16);
 
@@ -104,10 +62,8 @@ void setup()
   stepperRotate.setPositionRad(0);        // 0°
   stepperExtruder.setPositionRad(0);
 
-  // stepperHigher.setPositionRad(-PI / 2.0);          // -90°
   stepperHigher.setPositionRad(0);
   stepperLower.setPositionRad(PI / 2.0); // 90°
-  // stepperRotate.setPositionRad(0);         // 0°
   stepperRotate.setPositionRad((PI * 2) * GRIPPERFLOATHEIGHT / LEAD);
 
   // enable and init..
@@ -138,11 +94,9 @@ void setup()
     }
   }
 
-  // interpolator.setInterpolation(0, 180, 180, 0, 0, 180, 180, 0);
   interpolator.setInterpolation(INITIAL_X, INITIAL_Y, INITIAL_Z, INITIAL_E0, INITIAL_X, INITIAL_Y, INITIAL_Z, INITIAL_E0);
 
   SERIALX.println("started");
-  // Serial2.println("started");
 }
 
 void setStepperEnable(bool enable)
@@ -151,7 +105,6 @@ void setStepperEnable(bool enable)
   stepperLower.enable(enable);
   stepperHigher.enable(enable);
   stepperExtruder.enable(enable);
-  fan.enable(enable);
 }
 
 void loop()
@@ -159,7 +112,6 @@ void loop()
   // update and Calculate all Positions, Geometry and Drive all Motors...
   interpolator.updateActualPosition();
   geometry.set(interpolator.getXPosmm(), interpolator.getYPosmm(), interpolator.getZPosmm());
-  // Logger::logDEBUG(String(geometry.getLowRad()) + " " + String(geometry.getHighRad()) + " " + String(geometry.getRotRad()));
   stepperRotate.stepToPositionRad(geometry.getRotRad());
   stepperLower.stepToPositionRad(geometry.getLowRad());
   stepperHigher.stepToPositionRad(geometry.getHighRad());
@@ -167,7 +119,6 @@ void loop()
   stepperRotate.update();
   stepperLower.update(STEPPERDELAY);
   stepperHigher.update(STEPPERDELAY);
-  fan.update();
 
   if (!queue.isFull())
   {
@@ -195,9 +146,6 @@ void loop()
 
 void cmdMove(Cmd(&cmd))
 {
-  //  Serial.println(cmd.valueX);
-  //  Serial.println(cmd.valueY);
-  //  Serial.println(cmd.valueZ);
   interpolator.setInterpolation(cmd.valueX, cmd.valueY, cmd.valueZ, cmd.valueE, cmd.valueF);
 }
 void cmdDwell(Cmd(&cmd))
@@ -212,14 +160,6 @@ void cmdStepperOn()
 void cmdStepperOff()
 {
   setStepperEnable(false);
-}
-void cmdFanOn()
-{
-  fan.enable(true);
-}
-void cmdFanOff()
-{
-  fan.enable(false);
 }
 
 void handleAsErr(Cmd(&cmd))
@@ -272,10 +212,6 @@ void executeCommand(Cmd cmd)
     case 28:
       homeSequence();
       break;
-    // case 21: break; //set to mm
-    // case 90: cmdToAbsolute(); break;
-    // case 91: cmdToRelative(); break;
-    // case 92: cmdSetPosition(cmd); break;
     default:
       handleAsErr(cmd);
     }
@@ -284,7 +220,6 @@ void executeCommand(Cmd cmd)
   {
     switch (cmd.num)
     {
-    // case 0: cmdEmergencyStop(); break;
     case 3:
       servo_gripper.cmdOn();
       break;
@@ -296,11 +231,6 @@ void executeCommand(Cmd cmd)
       break;
     case 18:
       cmdStepperOff();
-      break;
-      fan.enable(true);
-      break;
-    case 107:
-      fan.enable(false);
       break;
     default:
       handleAsErr(cmd);
@@ -314,8 +244,6 @@ void executeCommand(Cmd cmd)
 void homeSequence()
 {
   setStepperEnable(false);
-  // fan.enable(true);
-  fan.enable(false);
   if (HOME_Y_STEPPER)
   {
     endstopY.home(!INVERSE_Y_STEPPER); // INDICATE STEPPER HOMING DIRECTION
