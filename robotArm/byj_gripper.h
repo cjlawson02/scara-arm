@@ -1,12 +1,13 @@
 #ifndef BYJ_GRIPPER_H_
 #define BYJ_GRIPPER_H_
 
-
-class BYJ_Gripper {
+class BYJ_Gripper
+{
 public:
   BYJ_Gripper(int pin0, int pin1, int pin2, int pin3, int steps);
-  void cmdOn(Cmd (&cmd));
-  void cmdOff(Cmd (&cmd));
+  void cmdOn(Cmd(&cmd));
+  void cmdOff(Cmd(&cmd));
+
 private:
   bool direction;
   int currentangle;

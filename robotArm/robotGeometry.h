@@ -1,7 +1,8 @@
 #ifndef ROBOTGEOMETRY_H_
 #define ROBOTGEOMETRY_H_
 
-class RobotGeometry {
+class RobotGeometry
+{
 public:
   RobotGeometry();
   void set(float axmm, float aymm, float azmm);
@@ -12,6 +13,7 @@ public:
   float getLowRad() const;
   float getHighRad() const;
   static bool elbow;
+
 private:
   void calculateGrad();
   float xmm;

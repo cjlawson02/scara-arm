@@ -1,8 +1,9 @@
 #include "config.h"
 #include "command.h"
 
-Command::Command() {
-  //initialize Command to a zero-move value;
+Command::Command()
+{
+  // initialize Command to a zero-move value;
   command.valueX = NAN;
   command.valueY = NAN;
   command.valueZ = NAN;
@@ -13,46 +14,58 @@ Command::Command() {
   message = "";
 }
 
-bool Command::handleGcode() {
+bool Command::handleGcode()
+{
   char c;
   bool isDataAval = false;
 
-  if (Serial.available()) {
+  if (Serial.available())
+  {
     c = Serial.read();
-    //Serial.println(c, DEC);
+    // Serial.println(c, DEC);
     isDataAval = true;
-  } else if (Serial2.available()) {
+  }
+  else if (Serial2.available())
+  {
     c = Serial2.read();
     isDataAval = true;
   }
 
-  if (isDataAval) {
-    if (c == '\n') {
+  if (isDataAval)
+  {
+    if (c == '\n')
+    {
       return false;
     }
-    if (c == '\r') {
+    if (c == '\r')
+    {
       bool b = processMessage(message);
       message = "";
       return b;
-    } else {
+    }
+    else
+    {
       message += c;
     }
   }
   return false;
 }
 
-bool Command::processMessage(String& msg) {
-  msg += ' ';  //helps parsing
+bool Command::processMessage(String &msg)
+{
+  msg += ' '; // helps parsing
   command.id = msg[0];
-  //exit if not GCode
-  if ((command.id != 'G') && (command.id != 'M')) {
+  // exit if not GCode
+  if ((command.id != 'G') && (command.id != 'M'))
+  {
     printErr();
     return false;
   }
-  //parse number
+  // parse number
   int first = 1;
   int last = pos(msg, ' ', 1);
-  if (last < 0) {
+  if (last < 0)
+  {
     printErr();
     return false;
   }
@@ -60,8 +73,7 @@ bool Command::processMessage(String& msg) {
   command.num = s.toInt();
   // Serial.println(cmd.num);
 
-
-  //parse up to 5 Values
+  // parse up to 5 Values
   command.valueX = NAN;
   command.valueY = NAN;
   command.valueZ = NAN;
@@ -70,29 +82,50 @@ bool Command::processMessage(String& msg) {
   command.valueT = 0;
   int parsePosition = last + 1;
   int i = 0;
-  while (i < 5) {
+  while (i < 5)
+  {
     char id = msg[parsePosition++];
-    if (id != ' ') {  //test if a command here
+    if (id != ' ')
+    { // test if a command here
       int first = parsePosition;
       int last = pos(msg, ' ', parsePosition);
-      if (last < first) { //test if String is valid
-        i = 5; //exit;
-      } else {
-        String floatString = msg.substring(first, last);  //should contain a Numeric value
+      if (last < first)
+      {        // test if String is valid
+        i = 5; // exit;
+      }
+      else
+      {
+        String floatString = msg.substring(first, last); // should contain a Numeric value
         float value = floatString.toFloat();
-        switch (id) {
-          case 'X': command.valueX = value; break;
-          case 'Y': command.valueY = value; break;
-          case 'Z': command.valueZ = value; break;
-          case 'E': command.valueZ = value; break;
-          case 'F': command.valueF = value; break;
-          case 'T': command.valueT = value; break;
-          default: i = 5;
+        switch (id)
+        {
+        case 'X':
+          command.valueX = value;
+          break;
+        case 'Y':
+          command.valueY = value;
+          break;
+        case 'Z':
+          command.valueZ = value;
+          break;
+        case 'E':
+          command.valueZ = value;
+          break;
+        case 'F':
+          command.valueF = value;
+          break;
+        case 'T':
+          command.valueT = value;
+          break;
+        default:
+          i = 5;
         }
         parsePosition = last + 1;
       }
-    } else {
-      i = 5; //exit;
+    }
+    else
+    {
+      i = 5; // exit;
     }
     i++;
   }
@@ -100,43 +133,48 @@ bool Command::processMessage(String& msg) {
   return true;
 }
 
-Cmd Command::getCmd() const {
+Cmd Command::getCmd() const
+{
   return command;
 }
 
-int Command::pos(String& s, char c, int start) {
+int Command::pos(String &s, char c, int start)
+{
   int len = s.length();
-  for (int i = start; i < len; i++) {
-    if (c == s[i]) {
+  for (int i = start; i < len; i++)
+  {
+    if (c == s[i])
+    {
       return i;
     }
   }
   return -1;
 }
 
-
-
-
-
-void printErr() {
+void printErr()
+{
   SERIALX.println("rs"); //'resend'
 }
 
-void printFault() {
+void printFault()
+{
   SERIALX.println("!!");
 }
 
-void printComment(char* c) {
+void printComment(char *c)
+{
   SERIALX.print("// ");
   SERIALX.println(c);
 }
 
-void printComment(String& s) {
+void printComment(String &s)
+{
   SERIALX.print("// ");
   SERIALX.println(s);
 }
 
-void printOk() {
-  //SERIALX.println("ok");
-  //Serial1.println("ok");
+void printOk()
+{
+  // SERIALX.println("ok");
+  // Serial1.println("ok");
 }

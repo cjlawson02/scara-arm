@@ -3,7 +3,8 @@
 #include "byj_gripper.h"
 #include <Arduino.h>
 
-BYJ_Gripper::BYJ_Gripper(int pin0, int pin1, int pin2, int pin3, int steps){
+BYJ_Gripper::BYJ_Gripper(int pin0, int pin1, int pin2, int pin3, int steps)
+{
   grip_steps = steps;
   byj_pin_0 = pin0;
   byj_pin_1 = pin1;
@@ -17,7 +18,8 @@ BYJ_Gripper::BYJ_Gripper(int pin0, int pin1, int pin2, int pin3, int steps){
   pinMode(byj_pin_3, OUTPUT);
 }
 
-void BYJ_Gripper::cmdOn(Cmd (&cmd)) {
+void BYJ_Gripper::cmdOn(Cmd(&cmd))
+{
   // close
   direction = true;
   int angle = int(cmd.valueT);
@@ -25,42 +27,52 @@ void BYJ_Gripper::cmdOn(Cmd (&cmd)) {
   currentangle = angle;
   int relsteps = trunc(relangle * BYJ_STEPS_PER_DEGREE);
   relsteps = abs(relsteps);
-  for (int i = 1; i <= relsteps; i++) {
+  for (int i = 1; i <= relsteps; i++)
+  {
     moveSteps();
     delay(1);
   }
 }
 
-void BYJ_Gripper::cmdOff(Cmd (&cmd)) {
+void BYJ_Gripper::cmdOff(Cmd(&cmd))
+{
   direction = false;
   int angle = int(cmd.valueT);
   int relangle = angle - currentangle;
   currentangle = angle;
   int relsteps = trunc(relangle * BYJ_STEPS_PER_DEGREE);
   relsteps = abs(relsteps);
-  for (int i = 1; i <= relsteps; i++) {
+  for (int i = 1; i <= relsteps; i++)
+  {
     moveSteps();
     delay(1);
   }
 }
 
-void BYJ_Gripper::setDirection(){
-  if (direction == true) {
+void BYJ_Gripper::setDirection()
+{
+  if (direction == true)
+  {
     step_cycle++;
   }
-  if (direction == false) {
+  if (direction == false)
+  {
     step_cycle--;
   }
-  if (step_cycle > 7) {
+  if (step_cycle > 7)
+  {
     step_cycle = 0;
   }
-  if (step_cycle < 0) {
+  if (step_cycle < 0)
+  {
     step_cycle = 7;
   }
 }
 
-void BYJ_Gripper::moveSteps() {
-  switch (step_cycle) {
+void BYJ_Gripper::moveSteps()
+{
+  switch (step_cycle)
+  {
   case 0:
     digitalWrite(byj_pin_0, LOW);
     digitalWrite(byj_pin_1, LOW);

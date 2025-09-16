@@ -2,11 +2,13 @@
 #define SERVO_GRIPPER_H_
 #include <Servo.h>
 
-class Servo_Gripper{
+class Servo_Gripper
+{
 public:
   Servo_Gripper(int pin, float grip_degree, float ungrip_degree);
   void cmdOn();
   void cmdOff();
+
 private:
   Servo servo_motor;
   int servo_pin;
