@@ -3,9 +3,19 @@
 #include <math.h>
 #include <Arduino.h>
 
-float lawOfCosines(float a, float b, float c)
+static inline float lawOfCosines(float a, float b, float c)
 {
-  return acosf((a * a + b * b - c * c) / (2.0f * a * b));
+  const float eps = 1e-6f;
+  if (a < eps || b < eps)
+    return 0.0f; // or a sentinel/prev value
+  float num = (a * a + b * b - c * c);
+  float den = 2.0f * a * b;
+  float x = num / den;
+  if (x > 1.0f)
+    x = 1.0f;
+  if (x < -1.0f)
+    x = -1.0f;
+  return acosf(x);
 }
 
 bool RobotGeometry::elbow = 0;
@@ -53,65 +63,67 @@ float RobotGeometry::getHighRad() const
 
 void RobotGeometry::calculateGrad()
 {
+  // work on locals; don't mutate stored pose
+  float rx = xmm;
+  float ry = ymm;
 
-  //
-  float dist = sqrt(xmm * xmm + ymm * ymm);
-  float D1, D2;
-  if (dist > (L1 + L2))
+  // planar radius
+  float dist = sqrtf(rx * rx + ry * ry);
+  const float maxReach = L1 + L2;
+  const float eps = 1e-6f;
+
+  if (dist > maxReach)
   {
-    dist = (L1 + L2) - 0.001f;
+    dist = maxReach - 1e-3f;
     SERIALX.println("IK overflow->limit");
   }
-  // bool elbow = 0; // elbow is initially static and = 0
 
-  if (xmm > 0 && ymm < (L1 + L2))
+  // choose elbow configuration (heuristic)
+  bool elbowLocal = elbow; // if you keep elbow as a member, start from current
+  if (rx > 0 && ry < maxReach)
+    elbowLocal = false;
+  if (rx > 135)
+    elbowLocal = false; // parked region
+  if (rx < 0 && ry < maxReach)
+    elbowLocal = true;
+
+  // reflect for elbow-up solution
+  if (elbowLocal)
+    rx = -rx;
+
+  // singularity at origin
+  if (dist < eps)
   {
-    elbow = 0;
-  }
-  if (xmm > 135)
-  { // parked
-    elbow = 0;
-  }
-  if (xmm < 0 && ymm < (L1 + L2))
-  {
-    elbow = 1;
+    // Define a sane default; shoulder pointing up
+    low = 0.0f;
+    high = -(PI - acosf((L1 * L1 + L2 * L2 - 0.0f) / (2.0f * L1 * L2))); // ~-PI
+    rot = -(PI * 2.0f) * zmm / LEAD;
+    elbow = elbowLocal; // persist choice if you keep elbow stateful
+    return;
   }
 
-  if (elbow == 1) // inverse elbow solution: reverse X axis, and final angles.
-    xmm = -xmm;
+  float D1 = atan2f(ry, rx);
+  float D2 = lawOfCosines(dist, L1, L2); // shoulder correction
+  low = D1 + D2 - (PI * 0.5f);           // mechanical offset
 
-  D1 = atan2(ymm, xmm);
-  D2 = lawOfCosines(dist, L1, L2);
-  low = D1 + D2 - (PI / 2.0);
+  // classical elbow term: elbowAngle = PI - acos((L1^2+L2^2 - r^2)/(2 L1 L2))
+  // your 'high' uses the negative of that, consistent with later sign flips
   high = lawOfCosines(L1, L2, dist) - PI;
-  if (elbow == 1)
+
+  if (elbowLocal)
   {
     low = -low;
     high = -high;
   }
-  float highgearing = 33.0 / 62.0;
-  high = high + (highgearing * low); // aha!
-  // Angles adjustment depending in which quadrant the final tool coordinate x,y is
-  if ((xmm >= 0) && (ymm >= 0))
-  { // 1st quadrant
-    // low = (PI / 2.0) - low;
-  }
-  if ((xmm < 0) && (ymm > 0))
-  { // 2nd quadrant
-    // low = (PI / 2.0) - low;
-  }
-  if ((xmm < 0) && (ymm < 0))
-  { // 3d quadrant
-    // low = (PI * 1.5) - low;
-  }
-  if ((xmm > 0) && (ymm < 0))
-  { // 4th quadrant
-    // low = -(PI / 2.0) - low;
-  }
-  if ((xmm < 0) && (ymm == 0))
-  {
-    // low = (PI * 1.5) + low;
-  }
 
-  rot = (PI * 2) * zmm / LEAD; // height in radians
+  // coupling gear ratio
+  const float highGearing = 33.0f / 62.0f;
+  high = high + (highGearing * low);
+
+  // (Quadrant adjustments are commented out; if needed, re-enable with care)
+
+  rot = -(PI * 2.0f) * zmm / LEAD;
+
+  // persist elbow configuration if intended
+  elbow = elbowLocal;
 }

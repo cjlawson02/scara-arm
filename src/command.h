@@ -1,6 +1,4 @@
-#ifndef COMMAND_H_
-#define COMMAND_H_
-
+#pragma once
 #include <Arduino.h>
 
 struct Cmd
@@ -11,7 +9,6 @@ struct Cmd
   float valueY;
   float valueZ;
   float valueF;
-  float valueE;
   float valueT;
 };
 
@@ -33,5 +30,3 @@ void printErr();
 void printFault();
 void printComment(char *c);
 void printComment(String &s);
-
-#endif

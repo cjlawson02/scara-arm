@@ -8,7 +8,6 @@ Command::Command()
   command.valueY = NAN;
   command.valueZ = NAN;
   command.valueF = 0;
-  command.valueE = 0;
   command.valueT = 0;
 
   message = "";
@@ -77,7 +76,6 @@ bool Command::processMessage(String &msg)
   command.valueX = NAN;
   command.valueY = NAN;
   command.valueZ = NAN;
-  command.valueE = NAN;
   command.valueF = 0;
   command.valueT = 0;
   int parsePosition = last + 1;

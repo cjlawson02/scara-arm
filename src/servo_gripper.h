@@ -1,5 +1,5 @@
-#ifndef SERVO_GRIPPER_H_
-#define SERVO_GRIPPER_H_
+#pragma once
+
 #include <Servo.h>
 
 class Servo_Gripper
@@ -15,5 +15,3 @@ private:
   float servo_grip_deg;
   float servo_ungrip_deg;
 };
-
-#endif

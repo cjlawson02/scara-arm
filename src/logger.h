@@ -1,5 +1,4 @@
-#ifndef LOGGER_H_
-#define LOGGER_H_
+#pragma once
 
 #include <Arduino.h>
 
@@ -15,4 +14,3 @@ public:
   static void logERROR(String message);
   static void logDEBUG(String message);
 };
-#endif

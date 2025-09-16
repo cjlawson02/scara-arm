@@ -31,23 +31,23 @@ bool RampsStepper::isOnPosition() const
   return stepperStepPosition == stepperStepTargetPosition;
 }
 
-int RampsStepper::getPosition() const
+int32_t RampsStepper::getPosition() const
 {
   return stepperStepPosition;
 }
 
-void RampsStepper::setPosition(int value)
+void RampsStepper::setPosition(int32_t value)
 {
   stepperStepPosition = value;
   stepperStepTargetPosition = value;
 }
 
-void RampsStepper::stepToPosition(int value)
+void RampsStepper::stepToPosition(int32_t value)
 {
   stepperStepTargetPosition = value;
 }
 
-void RampsStepper::stepRelative(int value)
+void RampsStepper::stepRelative(int32_t value)
 {
   value += stepperStepPosition;
   stepToPosition(value);
@@ -60,41 +60,53 @@ float RampsStepper::getPositionRad() const
 
 void RampsStepper::setPositionRad(float rad)
 {
-  setPosition(rad * radToStepFactor);
+  setPosition((int32_t)lroundf(rad * radToStepFactor));
 }
 
 void RampsStepper::stepToPositionRad(float rad)
 {
-  stepperStepTargetPosition = rad * radToStepFactor;
+  stepperStepTargetPosition = (int32_t)lroundf(rad * radToStepFactor);
 }
 
 void RampsStepper::stepRelativeRad(float rad)
 {
-  stepRelative(rad * radToStepFactor);
+  stepRelative((int32_t)lroundf(rad * radToStepFactor));
 }
 
-void RampsStepper::update(int aDelay)
+void RampsStepper::update(uint16_t aDelayUs)
 {
-  while (stepperStepTargetPosition < stepperStepPosition)
+  int32_t delta = stepperStepTargetPosition - stepperStepPosition;
+  if (delta == 0)
+    return;
+
+  // compute DIR (high = forward). XOR with inverse to flip if needed.
+  bool dirHigh = ((delta > 0) ? true : false) ^ inverse;
+
+  // set DIR once; if it changed, give it setup time before first STEP
+  if (dirHigh != lastDirHigh_)
   {
-    digitalWrite(dirPin, !inverse);
-    delayMicroseconds(10);
-    digitalWrite(stepPin, HIGH);
-    delayMicroseconds(aDelay);
-    digitalWrite(stepPin, LOW);
-    delayMicroseconds(10);
-    stepperStepPosition--;
+    digitalWrite(dirPin, dirHigh);
+    delayMicroseconds(2); // DIR setup (A4988/DRV8825 need ~200ns)
+    lastDirHigh_ = dirHigh;
   }
-  while (stepperStepTargetPosition > stepperStepPosition)
+  else
   {
-    digitalWrite(dirPin, inverse);
-    delayMicroseconds(10);
-    digitalWrite(stepPin, HIGH);
-    delayMicroseconds(aDelay);
-    digitalWrite(stepPin, LOW);
-    delayMicroseconds(10);
-    stepperStepPosition++;
+    digitalWrite(dirPin, dirHigh);
   }
+
+  uint32_t now = micros();
+  if ((int32_t)(now - nextStepAtUs_) < 0)
+    return; // not time yet
+
+  // STEP pulse (min high/low ≥ ~1–2 µs)
+  digitalWrite(stepPin, HIGH);
+  delayMicroseconds(2);
+  digitalWrite(stepPin, LOW);
+
+  stepperStepPosition += (delta > 0) ? 1 : -1;
+
+  // schedule next step based on time *after* the pulse
+  nextStepAtUs_ = micros() + aDelayUs;
 }
 
 void RampsStepper::setReductionRatio(float gearRatio, int stepsPerRev)

@@ -1,5 +1,4 @@
-#ifndef EQUIPMENT_H_
-#define EQUIPMENT_H_
+#pragma once
 
 class Equipment
 {
@@ -11,5 +10,3 @@ public:
 private:
   int pin;
 };
-
-#endif

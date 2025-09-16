@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include "interpolation.h"
+#include "config.h"
 
 void Interpolation::setCurrentPos(float px, float py, float pz)
 {
@@ -32,80 +33,89 @@ void Interpolation::setInterpolation(float p1x, float p1y, float p1z, float p2x,
   setInterpolation(p1, p2, v);
 }
 
-void Interpolation::setCurrentPos(Point p)
+void Interpolation::setCurrentPos(const Point &p)
 {
   xStartmm = p.xmm;
   yStartmm = p.ymm;
   zStartmm = p.zmm;
-  xDelta = 0;
-  yDelta = 0;
-  zDelta = 0;
+  xDelta = yDelta = zDelta = 0;
+  // keep reported position in sync
+  xPosmm = xStartmm;
+  yPosmm = yStartmm;
+  zPosmm = zStartmm;
+  state = 1;
 }
 
-void Interpolation::setInterpolation(Point p1, float v)
+// Prefer using the actual current reported position as p0 when chaining
+void Interpolation::setInterpolation(const Point &p1, float v)
 {
+  SERIALX.println("INT: setInterpolation(p1,v) called");
+
   Point p0;
-  p0.xmm = xStartmm + xDelta;
-  p0.ymm = yStartmm + yDelta;
-  p0.zmm = zStartmm + zDelta;
+  p0.xmm = xPosmm;
+  p0.ymm = yPosmm;
+  p0.zmm = zPosmm;
   setInterpolation(p0, p1, v);
 }
 
-void Interpolation::setInterpolation(Point p0, Point p1, float av)
+void Interpolation::setInterpolation(const Point &p0, const Point &p1, float av)
 {
-  v = av; // mm/s
+  float dx = p1.xmm - p0.xmm;
+  float dy = p1.ymm - p0.ymm;
+  float dz = p1.zmm - p0.zmm;
+  float dist = sqrtf(dx * dx + dy * dy + dz * dz);
 
-  float a = (p1.xmm - p0.xmm);
-  float b = (p1.ymm - p0.ymm);
-  float c = (p1.zmm - p0.zmm);
-  float dist = sqrt(a * a + b * b + c * c);
-
-  if (v < 5)
-  {                      // includes 0 = default value
-    v = sqrt(dist) * 10; // set a good value for v
-  }
-  if (v < 5)
+  if (dist <= 1e-6f)
   {
-    v = 5;
+    xStartmm = p0.xmm;
+    yStartmm = p0.ymm;
+    zStartmm = p0.zmm;
+    xDelta = yDelta = zDelta = 0;
+    xPosmm = p1.xmm;
+    yPosmm = p1.ymm;
+    zPosmm = p1.zmm;
+    state = 1;
+    return;
   }
 
-  tmul = v / dist;
+  // v: mm/s. Only pick a default if none provided.
+  float v = av;
+  if (v <= 0.0f)
+  {
+    // simple default: complete in ~2s regardless of distance
+    const float default_duration_s = 2.0f;
+    v = dist / default_duration_s;
+  }
+
+  tmul = v / dist; // 1/s
 
   xStartmm = p0.xmm;
   yStartmm = p0.ymm;
   zStartmm = p0.zmm;
-
-  xDelta = (p1.xmm - p0.xmm);
-  yDelta = (p1.ymm - p0.ymm);
-  zDelta = (p1.zmm - p0.zmm);
+  xDelta = dx;
+  yDelta = dy;
+  zDelta = dz;
 
   state = 0;
-
   startTime = micros();
 }
 
 void Interpolation::updateActualPosition()
 {
   if (state != 0)
-  {
     return;
-  }
 
-  long microsek = micros();
-  float t = (microsek - startTime) / 1000000.0;
+  // wrap-safe delta with uint32_t
+  uint32_t now = micros();
+  float t = (float)(now - startTime) * 1e-6f; // seconds since start
 
-  // ArcTan Approx.
-  /*float progress = atan((PI * t * tmul) - (PI * 0.5)) * 0.5 + 0.5;
-  if (progress >= 1.0) {
-    progress = 1.0;
-    state = 1;
-  }*/
+  // cosine ease-in/out in [0,1]
+  float u = t * tmul;
+  float progress = -cosf(u * PI) * 0.5f + 0.5f;
 
-  // Cosin Approx.
-  float progress = -cos(t * tmul * PI) * 0.5 + 0.5;
-  if ((t * tmul) >= 1.0)
+  if (u >= 1.0f)
   {
-    progress = 1.0;
+    progress = 1.0f;
     state = 1;
   }
 

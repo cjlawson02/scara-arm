@@ -1,5 +1,4 @@
-#ifndef ROBOTGEOMETRY_H_
-#define ROBOTGEOMETRY_H_
+#pragma once
 
 class RobotGeometry
 {
@@ -23,5 +22,3 @@ private:
   float low;
   float high;
 };
-
-#endif

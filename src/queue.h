@@ -1,5 +1,4 @@
-#ifndef QUEUE_H_
-#define QUEUE_H_
+#pragma once
 
 template <typename Element>
 class Queue
@@ -89,5 +88,3 @@ int Queue<Element>::getUsedSpace() const
 {
   return count;
 }
-
-#endif

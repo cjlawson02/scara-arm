@@ -1,5 +1,4 @@
-#ifndef PINOUT_H_
-#define PINOUT_H_
+#pragma once
 
 /*
  * pinout of RAMPS 1.4
@@ -23,4 +22,3 @@
 #define SERVO_PIN 4
 
 #define LED_PIN 13
-#endif

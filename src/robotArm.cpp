@@ -11,6 +11,10 @@
 #include "command.h"
 #include "servo_gripper.h"
 #include "equipment.h"
+#include <math.h>
+
+static bool motionActive = false;
+static uint32_t lastPrint = 0;
 
 // STEPPER OBJECTS
 RampsStepper stepperHigher(X_STEP_PIN, X_DIR_PIN, X_ENABLE_PIN, INVERSE_X_STEPPER);
@@ -31,20 +35,48 @@ int angle = 45;
 int angle_offset = 0; // offset to compensate deviation from 90 degree(middle position)
 // which should gripper should be full closed.
 
-void cmdMove(Cmd(&cmd))
+void cmdMove(const Cmd &cmd)
 {
-  interpolator.setInterpolation(cmd.valueX, cmd.valueY, cmd.valueZ);
-}
-void cmdDwell(Cmd(&cmd))
-{
-  delay(int(cmd.valueT * 1000));
+
+  SERIALX.print("Start move to X=");
+  SERIALX.print(cmd.valueX);
+  SERIALX.print(" Y=");
+  SERIALX.print(cmd.valueY);
+  SERIALX.print(" Z=");
+  SERIALX.print(cmd.valueZ);
+  SERIALX.print(" v=");
+
+  float v = (cmd.valueF > 0) ? (cmd.valueF / 60.0f) : 0.0f; // mm/s from mm/min
+  SERIALX.println(v);
+  interpolator.setInterpolation(cmd.valueX, cmd.valueY, cmd.valueZ, v);
+  motionActive = true; // <-- start driving IK
 }
 
-void setStepperEnable(bool enable)
+void cmdDwell(const Cmd &cmd)
 {
-  stepperRotate.enable(enable);
-  stepperLower.enable(enable);
-  stepperHigher.enable(enable);
+  delay((unsigned long)(cmd.valueT * 1000.0f));
+}
+
+void setStepperEnable(bool en)
+{
+  stepperRotate.enable(en);
+  stepperLower.enable(en);
+  stepperHigher.enable(en);
+  if (en)
+  {
+    // hold joints
+    stepperRotate.stepToPosition(stepperRotate.getPosition());
+    stepperLower.stepToPosition(stepperLower.getPosition());
+    stepperHigher.stepToPosition(stepperHigher.getPosition());
+
+    // Align logical position to current logical XYZ (so no XY correction)
+    interpolator.setCurrentPos(
+        interpolator.getXPosmm(),
+        interpolator.getYPosmm(),
+        interpolator.getZPosmm());
+
+    motionActive = false;
+  }
 }
 
 void cmdStepperOn()
@@ -56,7 +88,7 @@ void cmdStepperOff()
   setStepperEnable(false);
 }
 
-void handleAsErr(Cmd(&cmd))
+void handleAsErr(const Cmd &cmd)
 {
   printComment("Unknown Cmd " + String(cmd.id) + String(cmd.num) + " (queued)");
   printFault();
@@ -64,9 +96,23 @@ void handleAsErr(Cmd(&cmd))
 
 void homeSequence()
 {
-  setStepperEnable(false);
+  // 1) Seed joint step counters to your calibrated home steps
+  geometry.set(INITIAL_X, INITIAL_Y, INITIAL_Z);
+  stepperLower.setPositionRad(geometry.getLowRad());
+  stepperHigher.setPositionRad(geometry.getHighRad());
+  stepperRotate.setPositionRad(geometry.getRotRad());
 
-  interpolator.setInterpolation(INITIAL_X, INITIAL_Y, INITIAL_Z, INITIAL_X, INITIAL_Y, INITIAL_Z);
+  // 2) Seed logical XYZ to the same Cartesian home
+  interpolator.setCurrentPos(INITIAL_X, INITIAL_Y, INITIAL_Z);
+
+  // 3) Hold targets = current (no motion after homing)
+  stepperHigher.stepToPosition(stepperHigher.getPosition());
+  stepperLower.stepToPosition(stepperLower.getPosition());
+  stepperRotate.stepToPosition(stepperRotate.getPosition());
+
+  // 4) Stop any active motion gating
+  motionActive = false; // and clear any axis flags if you added them
+
   Logger::logINFO("HOMING COMPLETE");
 }
 
@@ -80,18 +126,24 @@ void executeCommand(Cmd cmd)
     return;
   }
 
-  if (cmd.valueX == NAN)
-  {
+  if (isnan(cmd.valueX))
     cmd.valueX = interpolator.getXPosmm();
-  }
-  if (cmd.valueY == NAN)
-  {
+  if (isnan(cmd.valueY))
     cmd.valueY = interpolator.getYPosmm();
-  }
-  if (cmd.valueZ == NAN)
-  {
+  if (isnan(cmd.valueZ))
     cmd.valueZ = interpolator.getZPosmm();
-  }
+
+  SERIALX.print("CMD: ");
+  SERIALX.print(cmd.id);
+  SERIALX.print(cmd.num);
+  SERIALX.print(" X=");
+  SERIALX.print(cmd.valueX);
+  SERIALX.print(" Y=");
+  SERIALX.print(cmd.valueY);
+  SERIALX.print(" Z=");
+  SERIALX.print(cmd.valueZ);
+  SERIALX.print(" F=");
+  SERIALX.println(cmd.valueF);
 
   // decide what to do
   if (cmd.id == 'G')
@@ -142,7 +194,6 @@ void executeCommand(Cmd cmd)
 
 void setup()
 {
-
   SERIALX.begin(BAUD);
 
   // various pins..
@@ -157,11 +208,6 @@ void setup()
   stepperHigher.setReductionRatio((62.0 / 16.0) * (62.0 / 33.0), 200 * 16);
   stepperLower.setReductionRatio(72.0 / 16.0, 200 * 16);
   stepperRotate.setReductionRatio(1.0, 200 * 16);
-
-  // start positions..
-  stepperHigher.setPositionRad(PI / 2.0); // 90°
-  stepperLower.setPositionRad(0);         // 0°
-  stepperRotate.setPositionRad(0);        // 0°
 
   stepperHigher.setPositionRad(0);
   stepperLower.setPositionRad(PI / 2.0); // 90°
@@ -180,26 +226,58 @@ void setup()
 
 void loop()
 {
-  // update and Calculate all Positions, Geometry and Drive all Motors...
+  if (millis() - lastPrint > 200)
+  {
+    SERIALX.print("uActive=");
+    SERIALX.print(motionActive);
+    SERIALX.print(" finished=");
+    SERIALX.print(interpolator.isFinished());
+    SERIALX.print(" Zcur=");
+    SERIALX.print(interpolator.getZPosmm());
+    SERIALX.print(" Ztgt=");
+    SERIALX.println(command.getCmd().valueZ); // or cache last move target
+    lastPrint = millis();
+  }
+
+  // 0) Pull and execute command first, if any and allowed
+  if (!queue.isEmpty() && interpolator.isFinished())
+  {
+    executeCommand(queue.pop()); // sets motionActive=true + sets state=0
+  }
+
+  // 1) Advance interpolation
   interpolator.updateActualPosition();
+
+  // 2) Gate motionActive only after we've given update() a chance to run
+  if (interpolator.isFinished())
+  {
+    motionActive = false;
+  }
+
+  // 3) Feed IK to steppers (or hold)
   geometry.set(interpolator.getXPosmm(), interpolator.getYPosmm(), interpolator.getZPosmm());
-  stepperRotate.stepToPositionRad(geometry.getRotRad());
-  stepperLower.stepToPositionRad(geometry.getLowRad());
-  stepperHigher.stepToPositionRad(geometry.getHighRad());
-  stepperRotate.update();
+  if (motionActive)
+  {
+    stepperRotate.stepToPositionRad(geometry.getRotRad());
+    stepperLower.stepToPositionRad(geometry.getLowRad());
+    stepperHigher.stepToPositionRad(geometry.getHighRad());
+  }
+  else
+  {
+    stepperRotate.stepToPosition(stepperRotate.getPosition());
+    stepperLower.stepToPosition(stepperLower.getPosition());
+    stepperHigher.stepToPosition(stepperHigher.getPosition());
+  }
+
+  // 4) Tick steppers
+  stepperRotate.update(STEPPERDELAY);
   stepperLower.update(STEPPERDELAY);
   stepperHigher.update(STEPPERDELAY);
 
-  if (!queue.isFull())
+  // 5) Ingest serial → push into queue
+  if (!queue.isFull() && command.handleGcode())
   {
-    if (command.handleGcode())
-    {
-      queue.push(command.getCmd());
-    }
-  }
-  if ((!queue.isEmpty()) && interpolator.isFinished())
-  {
-    executeCommand(queue.pop());
+    queue.push(command.getCmd());
   }
 
   if (millis() % 500 < 250)
