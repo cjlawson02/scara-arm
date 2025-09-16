@@ -49,8 +49,6 @@ void Interpolation::setCurrentPos(const Point &p)
 // Prefer using the actual current reported position as p0 when chaining
 void Interpolation::setInterpolation(const Point &p1, float v)
 {
-  SERIALX.println("INT: setInterpolation(p1,v) called");
-
   Point p0;
   p0.xmm = xPosmm;
   p0.ymm = yPosmm;

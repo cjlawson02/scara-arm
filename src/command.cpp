@@ -21,7 +21,6 @@ bool Command::handleGcode()
   if (Serial.available())
   {
     c = Serial.read();
-    // Serial.println(c, DEC);
     isDataAval = true;
   }
   else if (Serial2.available())
@@ -70,7 +69,6 @@ bool Command::processMessage(String &msg)
   }
   String s = msg.substring(first, last);
   command.num = s.toInt();
-  // Serial.println(cmd.num);
 
   // parse up to 5 Values
   command.valueX = NAN;

@@ -14,12 +14,11 @@
 #include <math.h>
 
 static bool motionActive = false;
-static uint32_t lastPrint = 0;
 
 // STEPPER OBJECTS
-RampsStepper stepperHigher(X_STEP_PIN, X_DIR_PIN, X_ENABLE_PIN, INVERSE_X_STEPPER);
-RampsStepper stepperLower(Y_STEP_PIN, Y_DIR_PIN, Y_ENABLE_PIN, INVERSE_Y_STEPPER);
-RampsStepper stepperRotate(Z_STEP_PIN, Z_DIR_PIN, Z_ENABLE_PIN, INVERSE_Z_STEPPER);
+RampsStepper stepperHigher(X_STEP_PIN, X_DIR_PIN, X_ENABLE_PIN, INVERSE_X_STEPPER, (62.0 / 16.0) * (62.0 / 33.0), 200 * 16);
+RampsStepper stepperLower(Y_STEP_PIN, Y_DIR_PIN, Y_ENABLE_PIN, INVERSE_Y_STEPPER, 72.0 / 16.0, 200 * 16);
+RampsStepper stepperRotate(Z_STEP_PIN, Z_DIR_PIN, Z_ENABLE_PIN, INVERSE_Z_STEPPER, 1.0, 200 * 16);
 
 // EQUIPMENT OBJECTS
 Servo_Gripper servo_gripper(SERVO_PIN, SERVO_GRIP_DEGREE, SERVO_UNGRIP_DEGREE);
@@ -37,17 +36,7 @@ int angle_offset = 0; // offset to compensate deviation from 90 degree(middle po
 
 void cmdMove(const Cmd &cmd)
 {
-
-  SERIALX.print("Start move to X=");
-  SERIALX.print(cmd.valueX);
-  SERIALX.print(" Y=");
-  SERIALX.print(cmd.valueY);
-  SERIALX.print(" Z=");
-  SERIALX.print(cmd.valueZ);
-  SERIALX.print(" v=");
-
   float v = (cmd.valueF > 0) ? (cmd.valueF / 60.0f) : 0.0f; // mm/s from mm/min
-  SERIALX.println(v);
   interpolator.setInterpolation(cmd.valueX, cmd.valueY, cmd.valueZ, v);
   motionActive = true; // <-- start driving IK
 }
@@ -133,18 +122,6 @@ void executeCommand(Cmd cmd)
   if (isnan(cmd.valueZ))
     cmd.valueZ = interpolator.getZPosmm();
 
-  SERIALX.print("CMD: ");
-  SERIALX.print(cmd.id);
-  SERIALX.print(cmd.num);
-  SERIALX.print(" X=");
-  SERIALX.print(cmd.valueX);
-  SERIALX.print(" Y=");
-  SERIALX.print(cmd.valueY);
-  SERIALX.print(" Z=");
-  SERIALX.print(cmd.valueZ);
-  SERIALX.print(" F=");
-  SERIALX.println(cmd.valueF);
-
   // decide what to do
   if (cmd.id == 'G')
   {
@@ -204,11 +181,6 @@ void setup()
   delay(300);
   servo_motor.detach();
 
-  // reduction of steppers..
-  stepperHigher.setReductionRatio((62.0 / 16.0) * (62.0 / 33.0), 200 * 16);
-  stepperLower.setReductionRatio(72.0 / 16.0, 200 * 16);
-  stepperRotate.setReductionRatio(1.0, 200 * 16);
-
   stepperHigher.setPositionRad(0);
   stepperLower.setPositionRad(PI / 2.0); // 90°
   stepperRotate.setPositionRad((PI * 2) * GRIPPERFLOATHEIGHT / LEAD);
@@ -226,66 +198,52 @@ void setup()
 
 void loop()
 {
-  if (millis() - lastPrint > 200)
-  {
-    SERIALX.print("uActive=");
-    SERIALX.print(motionActive);
-    SERIALX.print(" finished=");
-    SERIALX.print(interpolator.isFinished());
-    SERIALX.print(" Zcur=");
-    SERIALX.print(interpolator.getZPosmm());
-    SERIALX.print(" Ztgt=");
-    SERIALX.println(command.getCmd().valueZ); // or cache last move target
-    lastPrint = millis();
-  }
+  // 1) ALWAYS tick the steppers first. This is the highest priority.
+  stepperRotate.update();
+  stepperLower.update();
+  stepperHigher.update();
 
-  // 0) Pull and execute command first, if any and allowed
-  if (!queue.isEmpty() && interpolator.isFinished())
-  {
-    executeCommand(queue.pop()); // sets motionActive=true + sets state=0
-  }
-
-  // 1) Advance interpolation
-  interpolator.updateActualPosition();
-
-  // 2) Gate motionActive only after we've given update() a chance to run
+  // 2) If the interpolator is finished, the machine is idle.
+  //    We can process serial, pop a command from the queue, and handle LEDs.
   if (interpolator.isFinished())
   {
-    motionActive = false;
+    // Stop motion gating if it was active
+    if (motionActive)
+    {
+      motionActive = false;
+    }
+
+    // Check for and process incoming G-code commands ONLY when idle.
+    if (!queue.isFull() && command.handleGcode())
+    {
+      queue.push(command.getCmd());
+    }
+
+    // If there's a command in the queue, execute it.
+    if (!queue.isEmpty())
+    {
+      executeCommand(queue.pop()); // This will set motionActive=true for G0/G1
+    }
+
+    // Handle non-time-critical things like LEDs
+    if (millis() % 500 < 250)
+    {
+      led.cmdOn();
+    }
+    else
+    {
+      led.cmdOff();
+    }
   }
 
-  // 3) Feed IK to steppers (or hold)
-  geometry.set(interpolator.getXPosmm(), interpolator.getYPosmm(), interpolator.getZPosmm());
+  // 3) If motion is active, update the interpolator and feed new targets to IK.
+  //    This block only runs during a move.
   if (motionActive)
   {
+    interpolator.updateActualPosition();
+    geometry.set(interpolator.getXPosmm(), interpolator.getYPosmm(), interpolator.getZPosmm());
     stepperRotate.stepToPositionRad(geometry.getRotRad());
     stepperLower.stepToPositionRad(geometry.getLowRad());
     stepperHigher.stepToPositionRad(geometry.getHighRad());
-  }
-  else
-  {
-    stepperRotate.stepToPosition(stepperRotate.getPosition());
-    stepperLower.stepToPosition(stepperLower.getPosition());
-    stepperHigher.stepToPosition(stepperHigher.getPosition());
-  }
-
-  // 4) Tick steppers
-  stepperRotate.update(STEPPERDELAY);
-  stepperLower.update(STEPPERDELAY);
-  stepperHigher.update(STEPPERDELAY);
-
-  // 5) Ingest serial → push into queue
-  if (!queue.isFull() && command.handleGcode())
-  {
-    queue.push(command.getCmd());
-  }
-
-  if (millis() % 500 < 250)
-  {
-    led.cmdOn();
-  }
-  else
-  {
-    led.cmdOff();
   }
 }
