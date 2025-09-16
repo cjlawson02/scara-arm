@@ -14,8 +14,7 @@
 #include "RampsStepper.h"
 #include "queue.h"
 #include "command.h"
-#include "byj_gripper.h"
-// #include "servo_gripper.h"
+#include "servo_gripper.h"
 #include "equipment.h"
 #include "endstop.h"
 
@@ -33,8 +32,7 @@ Endstop endstopX(X_MIN_PIN, X_DIR_PIN, X_STEP_PIN, X_ENABLE_PIN, X_MIN_INPUT, X_
 Endstop endstopY(Y_MIN_PIN, Y_DIR_PIN, Y_STEP_PIN, Y_ENABLE_PIN, Y_MIN_INPUT, Y_HOME_STEPS, HOME_DWELL);
 Endstop endstopZ(Z_MIN_PIN, Z_DIR_PIN, Z_STEP_PIN, Z_ENABLE_PIN, Z_MIN_INPUT, Z_HOME_STEPS, HOME_DWELL);
 // EQUIPMENT OBJECTS
-BYJ_Gripper byj_gripper(BYJ_PIN_0, BYJ_PIN_1, BYJ_PIN_2, BYJ_PIN_3, BYJ_GRIP_STEPS);
-// Servo_Gripper servo_gripper(SERVO_PIN, SERVO_GRIP_DEGREE, SERVO_UNGRIP_DEGREE);
+Servo_Gripper servo_gripper(SERVO_PIN, SERVO_GRIP_DEGREE, SERVO_UNGRIP_DEGREE);
 Equipment laser(LASER_PIN);
 Equipment pump(PUMP_PIN);
 Equipment led(LED_PIN);
@@ -222,56 +220,6 @@ void cmdDwell(Cmd(&cmd))
   delay(int(cmd.valueT * 1000));
 }
 
-void cmdGripperOn(Cmd(&cmd))
-{
-  // Serial.print("Gripper on ");
-
-  // vacuum gripper
-  digitalWrite(MOTOR_IN1, HIGH);
-  digitalWrite(MOTOR_IN2, LOW);
-
-  servo_motor.attach(SERVO_PIN);
-  angle = int(cmd.valueT);
-  servo_motor.write(angle + -angle_offset);
-  delay(300);
-  servo_motor.detach();
-
-  // stepper gripper
-  // stepper.setSpeed(5);
-  // stepper.step(int(cmd.valueT));
-  // delay(50);
-  // digitalWrite(STEPPER_GRIPPER_PIN_0, LOW);
-  // digitalWrite(STEPPER_GRIPPER_PIN_1, LOW);
-  // digitalWrite(STEPPER_GRIPPER_PIN_2, LOW);
-  // digitalWrite(STEPPER_GRIPPER_PIN_3, LOW);
-  // printComment("// NOT IMPLEMENTED");
-  // printFault();
-}
-void cmdGripperOff(Cmd(&cmd))
-{
-  // Serial.print("Gripper off ");
-
-  // vaccum griiper
-  digitalWrite(MOTOR_IN1, LOW);
-  digitalWrite(MOTOR_IN2, LOW);
-
-  servo_motor.attach(SERVO_PIN);
-  angle = int(cmd.valueT);
-  servo_motor.write(angle + -angle_offset);
-  delay(300);
-  servo_motor.detach();
-
-  // stepper gripper
-  // stepper.setSpeed(5);
-  // stepper.step(-int(cmd.valueT));
-  // delay(50);
-  // digitalWrite(STEPPER_GRIPPER_PIN_0, LOW);
-  // digitalWrite(STEPPER_GRIPPER_PIN_1, LOW);
-  // digitalWrite(STEPPER_GRIPPER_PIN_2, LOW);
-  // digitalWrite(STEPPER_GRIPPER_PIN_3, LOW);
-  // printComment("// NOT IMPLEMENTED");
-  // printFault();
-}
 void cmdStepperOn()
 {
   setStepperEnable(true);
@@ -361,27 +309,11 @@ void executeCommand(Cmd cmd)
     {
     // case 0: cmdEmergencyStop(); break;
     case 3:
-      if (GRIPPER == 0)
-      {
-        byj_gripper.cmdOn(cmd);
-        break;
-      }
-      else if (GRIPPER == 1)
-      {
-        cmdGripperOn(cmd);
-        break;
-      }
+      servo_gripper.cmdOn();
+      break;
     case 5:
-      if (GRIPPER == 0)
-      {
-        byj_gripper.cmdOff(cmd);
-        break;
-      }
-      else if (GRIPPER == 1)
-      {
-        cmdGripperOff(cmd);
-        break;
-      }
+      servo_gripper.cmdOff();
+      break;
     case 17:
       cmdStepperOn();
       break;
