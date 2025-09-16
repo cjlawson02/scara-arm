@@ -33,7 +33,7 @@ int angle_offset = 0; // offset to compensate deviation from 90 degree(middle po
 
 void cmdMove(Cmd(&cmd))
 {
-  interpolator.setInterpolation(cmd.valueX, cmd.valueY, cmd.valueZ, cmd.valueE, cmd.valueF);
+  interpolator.setInterpolation(cmd.valueX, cmd.valueY, cmd.valueZ);
 }
 void cmdDwell(Cmd(&cmd))
 {
@@ -66,7 +66,7 @@ void homeSequence()
 {
   setStepperEnable(false);
 
-  interpolator.setInterpolation(INITIAL_X, INITIAL_Y, INITIAL_Z, INITIAL_E0, INITIAL_X, INITIAL_Y, INITIAL_Z, INITIAL_E0);
+  interpolator.setInterpolation(INITIAL_X, INITIAL_Y, INITIAL_Z, INITIAL_X, INITIAL_Y, INITIAL_Z);
   Logger::logINFO("HOMING COMPLETE");
 }
 
@@ -91,10 +91,6 @@ void executeCommand(Cmd cmd)
   if (cmd.valueZ == NAN)
   {
     cmd.valueZ = interpolator.getZPosmm();
-  }
-  if (cmd.valueE == NAN)
-  {
-    cmd.valueE = interpolator.getEPosmm();
   }
 
   // decide what to do
@@ -177,7 +173,7 @@ void setup()
   Logger::logINFO("ROBOT ONLINE");
   Logger::logINFO("HOME ROBOT MANUALLY");
 
-  interpolator.setInterpolation(INITIAL_X, INITIAL_Y, INITIAL_Z, INITIAL_E0, INITIAL_X, INITIAL_Y, INITIAL_Z, INITIAL_E0);
+  interpolator.setInterpolation(INITIAL_X, INITIAL_Y, INITIAL_Z, INITIAL_X, INITIAL_Y, INITIAL_Z);
 
   SERIALX.println("started");
 }
