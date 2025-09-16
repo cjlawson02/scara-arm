@@ -33,6 +33,5 @@ void printErr();
 void printFault();
 void printComment(char *c);
 void printComment(String &s);
-void printOk();
 
 #endif

@@ -199,12 +199,10 @@ void loop()
     if (command.handleGcode())
     {
       queue.push(command.getCmd());
-      printOk();
     }
   }
   if ((!queue.isEmpty()) && interpolator.isFinished())
   {
-    // Serial.println("moreOK");
     executeCommand(queue.pop());
   }
 

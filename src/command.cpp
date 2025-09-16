@@ -172,9 +172,3 @@ void printComment(String &s)
   SERIALX.print("// ");
   SERIALX.println(s);
 }
-
-void printOk()
-{
-  // SERIALX.println("ok");
-  // Serial1.println("ok");
-}

@@ -92,23 +92,23 @@ void RobotGeometry::calculateGrad()
   float highgearing = 33.0 / 62.0;
   high = high + (highgearing * low); // aha!
   // Angles adjustment depending in which quadrant the final tool coordinate x,y is
-  if (xmm >= 0 & ymm >= 0)
+  if ((xmm >= 0) && (ymm >= 0))
   { // 1st quadrant
     // low = (PI / 2.0) - low;
   }
-  if (xmm < 0 & ymm > 0)
+  if ((xmm < 0) && (ymm > 0))
   { // 2nd quadrant
     // low = (PI / 2.0) - low;
   }
-  if (xmm < 0 & ymm < 0)
+  if ((xmm < 0) && (ymm < 0))
   { // 3d quadrant
     // low = (PI * 1.5) - low;
   }
-  if (xmm > 0 & ymm < 0)
+  if ((xmm > 0) && (ymm < 0))
   { // 4th quadrant
     // low = -(PI / 2.0) - low;
   }
-  if (xmm < 0 & ymm == 0)
+  if ((xmm < 0) && (ymm == 0))
   {
     // low = (PI * 1.5) + low;
   }

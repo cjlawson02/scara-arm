@@ -33,7 +33,6 @@ public:
   Point getPosmm() const;
 
 private:
-  float getDistance() const;
   byte state;
 
   long startTime;

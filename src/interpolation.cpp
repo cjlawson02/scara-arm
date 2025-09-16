@@ -163,7 +163,3 @@ Point Interpolation::getPosmm() const
   p.emm = ePosmm;
   return p;
 }
-
-float Interpolation::getDistance() const
-{
-}

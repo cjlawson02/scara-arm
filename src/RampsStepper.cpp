@@ -9,7 +9,7 @@ RampsStepper::RampsStepper(int aStepPin, int aDirPin, int aEnablePin, bool aInve
   enablePin = aEnablePin;
   inverse = aInverse;
   stepperStepPosition = 0;
-  stepperStepTargetPosition;
+  stepperStepTargetPosition = 0;
   pinMode(stepPin, OUTPUT);
   pinMode(dirPin, OUTPUT);
   pinMode(enablePin, OUTPUT);
