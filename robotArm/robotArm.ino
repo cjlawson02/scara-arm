@@ -91,22 +91,12 @@ void setup()
 
   // reduction of steppers..
 
-  if (SCARA)
-  {
-    // SERIALX.println("here");
-    // stepperHigher.setReductionRatio(62.0 / 20.0, 200 * 16);
-    stepperHigher.setReductionRatio((62.0 / 16.0) * (62.0 / 33.0), 200 * 16);
-    // stepperLower.setReductionRatio( 62.0 / 20.0, 200 * 16);
-    stepperLower.setReductionRatio(72.0 / 16.0, 200 * 16);
-    stepperRotate.setReductionRatio(1.0, 200 * 16);
-  }
-  else
-  {
-    stepperHigher.setReductionRatio(32.0 / 9.0, 200 * 16); // big gear: 32, small gear: 9, steps per rev: 200, microsteps: 16
-    stepperLower.setReductionRatio(32.0 / 9.0, 200 * 16);
-    stepperRotate.setReductionRatio(32.0 / 9.0, 200 * 16);
-    stepperExtruder.setReductionRatio(32.0 / 9.0, 200 * 16);
-  }
+  // SERIALX.println("here");
+  // stepperHigher.setReductionRatio(62.0 / 20.0, 200 * 16);
+  stepperHigher.setReductionRatio((62.0 / 16.0) * (62.0 / 33.0), 200 * 16);
+  // stepperLower.setReductionRatio( 62.0 / 20.0, 200 * 16);
+  stepperLower.setReductionRatio(72.0 / 16.0, 200 * 16);
+  stepperRotate.setReductionRatio(1.0, 200 * 16);
 
   // start positions..
   stepperHigher.setPositionRad(PI / 2.0); // 90°
@@ -114,14 +104,12 @@ void setup()
   stepperRotate.setPositionRad(0);        // 0°
   stepperExtruder.setPositionRad(0);
 
-  if (SCARA)
-  {
-    // stepperHigher.setPositionRad(-PI / 2.0);          // -90°
-    stepperHigher.setPositionRad(0);
-    stepperLower.setPositionRad(PI / 2.0); // 90°
-    // stepperRotate.setPositionRad(0);         // 0°
-    stepperRotate.setPositionRad((PI * 2) * GRIPPERFLOATHEIGHT / LEAD);
-  }
+  // stepperHigher.setPositionRad(-PI / 2.0);          // -90°
+  stepperHigher.setPositionRad(0);
+  stepperLower.setPositionRad(PI / 2.0); // 90°
+  // stepperRotate.setPositionRad(0);         // 0°
+  stepperRotate.setPositionRad((PI * 2) * GRIPPERFLOATHEIGHT / LEAD);
+
   // enable and init..
   setStepperEnable(false);
 
